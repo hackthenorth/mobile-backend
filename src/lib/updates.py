@@ -43,14 +43,14 @@ def checkEnvVars():
    # This sends a dummy GCM request that won't actually do anything meaningful. However,
    # it will give an error if the API key is invalid for some reason.
    printInfo('Checking that the GCM API key is valid...')
-   kwargs = { 
+   args = { 
          'headers': { 
             'Authorization': 'key=%s' % GCM_API_KEY, 
             'Content-Type': 'application/json' 
             }, 
          'data': json.dumps({ 'registration_ids': [ '40' ] })
          }
-   r = requests.post(GCM_URL, **kwargs)
+   r = requests.post(GCM_URL, **args)
 
    try:
       # GCM returns non-json data on error.
@@ -84,10 +84,10 @@ def pushToFirebase():
    printInfo('Confirm update:')
    print json.dumps(new_data, indent=2)
 
-   # Keep taking input until the admin write something that resembles yes or no
+   # Keep taking input until the admin writes something that resembles yes or no
    while True:
-       confirm = raw_input(make_prompt('yn')).lower()
-       if confirm[0] == 'y' or confirm[0] == 'n':
+       confirm = raw_input(make_prompt('y/n')).lower()
+       if confirm[0] in ['y', 'n']:
            break
 
    if confirm[0] == 'n':
@@ -137,15 +137,16 @@ def pingGCM(data):
 
    # If we didn't have any registration IDs in Firebase, we will get back None as our
    # JSON; don't try to use it if it's None.
-   if r.json():
-      if 'error' in r.json():
+   response = r.json() # is a python dict
+   if response:
+      if 'error' in response:
          printError('Error retreiving registration ids from /notifications/android.json')
          printError('Make sure the Firebase instance at %s is properly set up with ' \
                'registration ids at /notifications/android.' % FIREBASE_URL)
          printError('Also, make sure to call checkEnvVars to validate your environment ' \
                'variables.')
       else:
-         registration_ids = r.json().keys()
+         registration_ids = response.keys()
 
    # If there aren't any registration IDs, then stop doing things.
    if len(registration_ids) == 0:
@@ -154,21 +155,22 @@ def pingGCM(data):
       return None
 
    # Make the request to GCM.
-   kwargs = {
-         'headers': {
-            'Content-Type': 'application/json',
-            'Authorization': 'key=%s' % GCM_API_KEY
-            },
-         'data': json.dumps({
-            'registration_ids': registration_ids,
-            'data': data
-            })
-         }
+   args = { 
+           'headers': { 
+               'Content-Type': 'application/json',
+               'Authorization': 'key=%s' % GCM_API_KEY
+               },
+           'data': json.dumps({
+               'registration_ids': registration_ids,
+               'data': data 
+               })
+           }
    r = requests.post(GCM_URL, **kwargs)
 
    # Check for GCM errors here
+   gcm_response = None
    try:
-      r.json()
+      gcm_response = r.json()
    except ValueError:
       printError('GCM error: %s' % r.text)
       return None
@@ -179,14 +181,14 @@ def pingGCM(data):
 
    # r.json()['success'] and failure report the number of successful and failed
    # notifications, respectively.
-   printInfo('%d notifications sent successfully.' % r.json()['success'])
-   printInfo('%d notifications failed.' % r.json()['failure'])
+   printInfo('%d notifications sent successfully.' % gcm_response['success'])
+   printInfo('%d notifications failed.' % gcm_response['failure'])
 
    # When we send off a GCM request, sometimes GCM will have something to say about
    # the registration IDs we tried to send a message to.
    print ''
    printInfo('Performing bookkeeping...')
-   results = r.json()['results']
+   results = gcm_response['results']
    for i in xrange(0, len(registration_ids)):
 
       registration_id = registration_ids[i]
@@ -196,7 +198,7 @@ def pingGCM(data):
          # GCM will give us this result if we give it a) a malformed registration ID,
          # or b) an ID that corresponds to a user who has uninstalled our app. In both cases,
          # we should delete the registration ID from firebase.
-         if result['error'] == 'Unregistered' or result['error'] == 'InvalidRegistration':
+         if result['error'] in ['Unregistered', 'InvalidRegistration']:
 
             # Delete the registration ID from firebase.
             printInfo('Registration ID \'%s\' is invalid; deleting from Firebase...' % registration_id)
