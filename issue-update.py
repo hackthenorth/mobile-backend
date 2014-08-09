@@ -1,6 +1,6 @@
 #!/bin/python
 
-from lib import updates
+from src.lib import updates
 
 if updates.checkEnvVars():
     data = updates.pushToFirebase()

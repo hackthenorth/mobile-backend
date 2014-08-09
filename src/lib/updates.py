@@ -7,35 +7,17 @@ import os
 import sys
 import requests
 import re
-from termcolor import colored
+
+# IO helper functions
+from htnio import *
 
 # The narrative in the comments for this code is as follows:
 # 'the user' is a user of our app, who we are sending notifications to
 # 'the/an admin' is a user of this script
 
-# Environment variables and URLs
-FIREBASE_SECRET = os.getenv('FIREBASE_SECRET', None)
-FIREBASE_URL = os.getenv('FIREBASE_URL', None)
-GCM_API_KEY = os.getenv('GCM_API_KEY', None)
+# Environment variables, URLs, and other constants
+from ..login import * # Contains all the secret login info
 GCM_URL = 'https://android.googleapis.com/gcm/send'
-
-# I/O helper functions
-def printError(msg):
-   print "[ %s ] %s" % (colored('ERROR', 'red'), msg)
-
-def printInfo(msg):
-   print "[ %s ] %s" % (colored('INFO', 'green'), msg)
-
-INPUT_INDICATOR = '> '
-def make_prompt(string):
-   return "[ %s ] %s" % (colored(string, 'magenta'), INPUT_INDICATOR)
-
-def forever_raw_input(string):
-   input_string = raw_input(string)
-   while True:
-      if input_string != '':
-         return input_string
-      input_string = raw_input(INPUT_INDICATOR)
 
 def getCurrentTimeISO8601():
    # Note: this assumes EST with daylight saving's time.
@@ -44,22 +26,6 @@ def getCurrentTimeISO8601():
 # Checks that environment variables exist and that they work correctly.
 # Returns True if so, and False otherwise.
 def checkEnvVars():
-
-   # Check environment variables.
-   if FIREBASE_SECRET is None:
-      printError('You have not set your FIREBASE_SECRET environment variable.')
-      print ''
-      return False
-
-   if FIREBASE_URL is None:
-      printError('You have not set your FIREBASE_URL environment variable.')
-      print ''
-      return False
-
-   if GCM_API_KEY is None:
-      printError('You have not set your GCM_API_KEY environment variable.')
-      print ''
-      return False
 
    # Check that the firebase secret is valid. Note that foo.firebaseio.com/test.json 
    # is a valid data path that doesn't have public read permission, so we should only 
