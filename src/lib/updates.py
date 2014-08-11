@@ -194,7 +194,7 @@ def pingGCM(data):
    for i in xrange(0, len(regid_partition)):
       registration_ids = regid_partition[i]
 
-      printInfo('Making GCM request %d of %d...' % (i, len(regid_partition)))
+      printInfo('Making GCM request %d of %d...' % (i + 1, len(regid_partition)))
       
       # Make the request to GCM.
       args = { 
