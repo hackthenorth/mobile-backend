@@ -1,13 +1,14 @@
 #!/bin/python
 
 import httplib
-import time
 import json
 import os
 import sys
 import requests
 import re
 import copy
+from dateutil.tz import tzlocal
+import datetime
 
 # IO helper functions
 from htnio import *
@@ -21,8 +22,9 @@ from ..login import * # Contains all the secret login info
 GCM_URL = 'https://android.googleapis.com/gcm/send'
 
 def getCurrentTimeISO8601():
-   # Note: this assumes EST with daylight saving's time.
-   return time.strftime('%Y-%m-%dT%H:%M:%S-04:00')
+   string = datetime.datetime.now(tz=tzlocal()).strftime('%Y-%m-%dT%H:%M:%S%z')
+   # %z returns [+-]HHMM, and we want [+-]HH:MM.
+   return string[:-2] + ':' + string[-2:]
 
 # Checks that environment variables exist and that they work correctly.
 # Returns True if so, and False otherwise.
