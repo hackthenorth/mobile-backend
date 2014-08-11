@@ -7,6 +7,7 @@ import os
 import sys
 import requests
 import re
+import copy
 
 # IO helper functions
 from htnio import *
@@ -31,14 +32,14 @@ def checkEnvVars():
    # is a valid data path that doesn't have public read permission, so we should only 
    # be able to read it if the secret is valid.
    printInfo('Checking that the Firebase secret is valid...')
-   r = requests.get("%s/test.json" % FIREBASE_URL, params = { 'auth': FIREBASE_SECRET })
+   r = requests.get('%s/test.json' % FIREBASE_URL, params = { 'auth': FIREBASE_SECRET })
    if 'error' in r.json():
        printError("Firebase error: '%s'" % r.json()['error'])
        printError('Double check that $FIREBASE_SECRET matches the secret ' \
-             'for %s' % FIREBASE_URL)
+             'for %s.' % FIREBASE_URL)
        print ''
        return False
-   printInfo('Firebase secret OK')
+   printInfo('Firebase secret OK.')
 
    # This sends a dummy GCM request that won't actually do anything meaningful. However,
    # it will give an error if the API key is invalid for some reason.
@@ -60,7 +61,7 @@ def checkEnvVars():
       printError('Check that your GCM_API_KEY is correct, and that your IP address ' \
             'is registered in the GCM dashboard.')
       return False
-   printInfo('GCM API key OK')
+   printInfo('GCM API key OK.')
 
    # If we get here, then our environment variables are all good. :+1:
    return True
@@ -87,11 +88,11 @@ def pushToFirebase():
    # Keep taking input until the admin writes something that resembles yes or no
    while True:
        confirm = raw_input(make_prompt('y/n')).lower()
-       if confirm[0] in ['y', 'n']:
+       if len(confirm) > 0 and confirm[0] in ['y', 'n']:
            break
 
    if confirm[0] == 'n':
-       printInfo('Cancelled')
+       printInfo('Cancelled.')
        return None
 
    # Note: confirm[0] must be 'y...' at this point, so we can assume the admin
@@ -107,24 +108,53 @@ def pushToFirebase():
        printError('Firebase error: %s' % r.json()['error'])
        return None
 
-   printInfo('Data successfully added to Firebase')
+   printInfo('Data successfully added to Firebase.')
    return new_data
 
-# Takes a dict of data that corresponds to the data that was just added to 
-# Firebase, and sends a notification to all our users about the new update.
-#
-# TODO: The GCM payload is max 4kb, and we currently aren't doing any checking
-# on the size of the payload, and if GCM fails then, by the way this code is 
-# structured, we won't be able to send users notifications for this update.
-#
+
+# GCM payload can't be more than 4096 bytes.
+def normalizeGCMData(data):
+   newData = copy.deepcopy(data)
+
+   # calculate the size of the payload
+   size = 0;
+   for key in newData.keys():
+      size += len(bytes(key)) + len(bytes(newData[key]))
+
+   if size > 4096:
+      delta = size - 4096
+
+      # Trim at least as many bytes off as we need to be trimmed
+      string = newData['description'][:-delta] 
+
+      # Put a '...' on the end of the string
+      string = '%s%s' % (string[:-3], '...')
+      newData['description'] = string
+
+   return newData
+
+
+def partition(lst, n):
+   # j partititions of i elements
+   lsts = [[lst[i + n*j] for i in range(0, n)] for j in range(0, len(lst)/n)]
+   if len(lst) % n == 0:
+      return lsts
+   else:
+      # Append on the overflow elements
+      return lsts + [ lst[n * (len(lst)/n):] ]
+
+
 # TODO: Can probably add functionality here to send a notification for the 
 # most recent update in /updates.json, and have another admin script that uses
 # it in the case that GCM fails for some reason and we didn't send the users
 # notifications.
-#
-# TODO: We can only send 1000 registration_ids at a time to GCM. To be safe we should
-# probably check for this and use a loop for multiple requests.
+
+# Takes a dict of data that corresponds to the data that was just added to 
+# Firebase, and sends a notification to all our users about the new update.
 def pingGCM(data):
+
+   # Normalize the data
+   data = normalizeGCMData(data)
 
    # Get all the android registration ids from Firebase
    print ''
@@ -150,70 +180,84 @@ def pingGCM(data):
 
    # If there aren't any registration IDs, then stop doing things.
    if len(registration_ids) == 0:
-      printInfo('No registration IDs in Firebase')
-      printInfo('Finishing')
+      printInfo('No registration IDs in Firebase.')
+      printInfo('Finished.')
       return None
+   else:
+      printInfo('Received registration ids.')
+      print ''
 
-   # Make the request to GCM.
-   args = { 
-           'headers': { 
-               'Content-Type': 'application/json',
-               'Authorization': 'key=%s' % GCM_API_KEY
-               },
-           'data': json.dumps({
-               'registration_ids': registration_ids,
-               'data': data 
-               })
-           }
-   r = requests.post(GCM_URL, **kwargs)
+   # GCM only supports requests with up to 1000 registration IDs, so 
+   # partition the registration_ids into lists of <= 1000 ids.
+   regid_partition = partition(registration_ids, 1000)
 
-   # Check for GCM errors here
-   gcm_response = None
-   try:
-      gcm_response = r.json()
-   except ValueError:
-      printError('GCM error: %s' % r.text)
-      return None
+   for i in xrange(0, len(regid_partition)):
+      registration_ids = regid_partition[i]
 
-   # See [1] for a reference on the result values of these kinds of GCM requests.
-   # Thankfully they're pretty sane.
-   # [1]: https://developer.android.com/google/gcm/http.html#example-responses
+      printInfo('Making GCM request %d of %d...' % (i, len(regid_partition)))
+      
+      # Make the request to GCM.
+      args = { 
+              'headers': { 
+                  'Content-Type': 'application/json',
+                  'Authorization': 'key=%s' % GCM_API_KEY
+                  },
+              'data': json.dumps({
+                  'registration_ids': registration_ids,
+                  'data': data 
+                  })
+              }
+      r = requests.post(GCM_URL, **args)
 
-   # r.json()['success'] and failure report the number of successful and failed
-   # notifications, respectively.
-   printInfo('%d notifications sent successfully.' % gcm_response['success'])
-   printInfo('%d notifications failed.' % gcm_response['failure'])
+      # Check for GCM errors here
+      gcm_response = None
+      try:
+         gcm_response = r.json()
+      except ValueError:
+         printError('GCM error: %s' % r.text)
+         return None
 
-   # When we send off a GCM request, sometimes GCM will have something to say about
-   # the registration IDs we tried to send a message to.
-   print ''
-   printInfo('Performing bookkeeping...')
-   results = gcm_response['results']
-   for i in xrange(0, len(registration_ids)):
+      # See [1] for a reference on the result values of these kinds of GCM requests.
+      # Thankfully they're pretty sane.
+      # [1]: https://developer.android.com/google/gcm/http.html#example-responses
 
-      registration_id = registration_ids[i]
-      result = results[i]
+      # gcm_response['success'] and 'failure' report the number of successful and failed
+      # notifications, respectively.
+      printInfo('%d notifications sent successfully.' % gcm_response['success'])
+      printInfo('%d notifications failed.' % gcm_response['failure'])
 
-      if 'error' in result:
-         # GCM will give us this result if we give it a) a malformed registration ID,
-         # or b) an ID that corresponds to a user who has uninstalled our app. In both cases,
-         # we should delete the registration ID from firebase.
-         if result['error'] in ['Unregistered', 'InvalidRegistration']:
+      # When we send off a GCM request, sometimes GCM will have something to say about
+      # the registration IDs we tried to send a message to.
+      print ''
+      printInfo('Performing bookkeeping...')
+      results = gcm_response['results']
+      for i in xrange(0, len(registration_ids)):
 
-            # Delete the registration ID from firebase.
-            printInfo('Registration ID \'%s\' is invalid; deleting from Firebase...' % registration_id)
-            r = requests.delete('%s/notifications/android/%s.json' % (FIREBASE_URL, registration_id),
+         registration_id = registration_ids[i]
+         result = results[i]
+
+         if 'error' in result:
+            # GCM will give us this result if we give it a) a malformed registration ID,
+            # or b) an ID that corresponds to a user who has uninstalled our app. In both cases,
+            # we should delete the registration ID from firebase.
+            if result['error'] in ['Unregistered', 'InvalidRegistration']:
+
+               # Delete the registration ID from firebase.
+               printInfo('Registration ID \'%s\' is invalid; deleting from Firebase...' % registration_id)
+               r = requests.delete('%s/notifications/android/%s.json' % (FIREBASE_URL, registration_id),
+                     params = { 'auth': FIREBASE_SECRET })
+               
+         # Sometimes GCM will be like 'yo! you gave me this registration ID, but I have a new one for this
+         # user and in the future you should use it instead'.
+         elif 'registration_id' in result:
+
+            new_regid = result['registration_id']
+
+            # Update the registration ID from firebase
+            printInfo('Updating registration ID %s to %s...' % (registration_id, new_regid))
+            r = requests.delete('%s/notifications/android/%s.json' % registration_id,
                   params = { 'auth': FIREBASE_SECRET })
-            
-      # Sometimes GCM will be like 'yo! you gave me this registration ID, but I have a new one for this
-      # user and in the future you should use it instead'.
-      elif 'registration_id' in result:
+            r = requests.put('%s/notifications/android/%s.json' % new_regid,
+                  params = { 'auth': FIREBASE_SECRET })
 
-         new_regid = result['registration_id']
-
-         # Update the registration ID from firebase
-         printInfo('Updating registration ID %s to %s...' % (registration_id, new_regid))
-         r = requests.delete('%s/notifications/android/%s.json' % registration_id,
-               params = { 'auth': FIREBASE_SECRET })
-         r = requests.put('%s/notifications/android/%s.json' % new_regid,
-               params = { 'auth': FIREBASE_SECRET })
+      printInfo('Bookkeeping finished')
