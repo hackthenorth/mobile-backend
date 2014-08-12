@@ -1,5 +1,12 @@
 #!/bin/python
 
+# Admin scripts to issue updates via Firebase, GCM, and APNS
+# Author: Shane Creighton-Young
+
+# The narrative in the comments for this code is as follows:
+# 'the user' is a user of our app, who we are sending notifications to
+# 'the/an admin' is a user of this script
+
 import httplib
 import json
 import os
@@ -9,13 +16,13 @@ import re
 import copy
 from dateutil.tz import tzlocal
 import datetime
+from termcolor import colored
 
 # IO helper functions
 from htnio import *
 
-# The narrative in the comments for this code is as follows:
-# 'the user' is a user of our app, who we are sending notifications to
-# 'the/an admin' is a user of this script
+# URL secretary: keeps track of our recently used URLs so it's easier to make updates
+import urlsec
 
 # Environment variables, URLs, and other constants
 from ..login import * # Contains all the secret login info
@@ -68,6 +75,27 @@ def checkEnvVars():
    # If we get here, then our environment variables are all good. :+1:
    return True
 
+# Allows the user to enter an image url, 
+def get_image_url(name):
+
+   n = 10
+
+   printInfo('<enter>: use the default image')
+   url_data = urlsec.get_recent(n)
+   for i in xrange(0, len(url_data)):
+      url_dict = url_data[i]
+      printInfo('<%d>: (%s) %s' % (i, colored(url_dict['name'], 'cyan'), url_dict['url']))
+
+   valid_numbers = ['%d' % i for i in range(0, len(url_data))]
+   
+   user_input = raw_input(make_prompt('image url'))
+   while True:
+      if user_input in valid_numbers:
+         i = int(user_input)
+         return url_data[i]['url']
+      else:
+	 return user_input
+
 # Returns a dict of the new data on success, or None if failed.
 def pushToFirebase():
 
@@ -75,8 +103,7 @@ def pushToFirebase():
    print ''
    name = forever_raw_input(make_prompt('name'))
    description = forever_raw_input(make_prompt('text'))
-   printInfo('Note that you can hit just hit <enter> to use the default image.')
-   imageurl = raw_input(make_prompt('image url'))
+   imageurl = get_image_url(name)
 
    # Confirm
    new_data = { 'name': name,
@@ -99,6 +126,8 @@ def pushToFirebase():
 
    # Note: confirm[0] must be 'y...' at this point, so we can assume the admin
    # has said "yes this data is good"
+
+   urlsec.use(new_data['name'], new_data['avatar'])
 
    # Add the update to firebase.
    r = requests.post('%s/updates.json' % FIREBASE_URL,
