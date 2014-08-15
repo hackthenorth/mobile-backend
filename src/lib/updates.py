@@ -73,6 +73,22 @@ def checkEnvVars():
       return False
    printInfo('GCM API key OK.')
 
+   # Check that the Parse information is valid by GETing our empty users list 
+   printInfo('Checking that the Parse APP ID and REST API key are valid...')
+   headers = {
+         'X-Parse-Application-Id': PARSE_APP_ID,
+         'X-Parse-REST-API-Key': PARSE_API_KEY,
+         'Content-Type': 'application/json'
+         }
+   r_json = requests.get('https://api.parse.com/1/users', headers=headers).json()
+
+   if 'error' in r_json:
+      printError('Parse error: %s' % r_json['error'])
+      printError('Check that your PARSE_APP_ID and PARSE_API_KEY are correct. Note ' \
+            'that Parse uses an API key that is specific to the REST API.')
+      return False
+   printInfo('Parse APP ID and Parse REST API key OK.')
+
    # If we get here, then our environment variables are all good. :+1:
    return True
 
