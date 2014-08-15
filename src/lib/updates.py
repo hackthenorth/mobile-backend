@@ -27,6 +27,7 @@ import urlsec
 # Environment variables, URLs, and other constants
 from ..login import * # Contains all the secret login info
 GCM_URL = 'https://android.googleapis.com/gcm/send'
+PARSE_URL = 'https://api.parse.com/1/push'
 
 def getCurrentTimeISO8601():
    string = datetime.datetime.now(tz=tzlocal()).strftime('%Y-%m-%dT%H:%M:%S%z')
@@ -260,7 +261,7 @@ def pingGCM(data):
       # When we send off a GCM request, sometimes GCM will have something to say about
       # the registration IDs we tried to send a message to.
       print ''
-      printInfo('Performing bookkeeping...')
+      printInfo('Performing GCM bookkeeping...')
       results = gcm_response['results']
       for i in xrange(0, len(registration_ids)):
 
@@ -291,4 +292,30 @@ def pingGCM(data):
             r = requests.put('%s/notifications/android/%s.json' % new_regid,
                   params = { 'auth': FIREBASE_SECRET })
 
-      printInfo('Bookkeeping finished')
+      printInfo('GCM bookkeeping finished.')
+
+def pingAPNS(data):
+
+   print ''
+   # We've set up Parse to do this for us, because setting up an APNS server is more work
+   # than it's worth
+   printInfo('Making Parse request for iOS notifications...')
+   kwargs = { 
+         'data': json.dumps({ 
+            'channels': [ 'global' ],
+            'data': {
+               'alert': '%s: %s' % (data['name'], data['description'])
+               }
+            }),
+         'headers': {
+            'X-Parse-Application-Id': PARSE_APP_ID,
+            'X-Parse-REST-API-Key': PARSE_API_KEY,
+            'Content-Type': 'application/json'
+            }
+         }
+
+   r_json = requests.post(PARSE_URL, **kwargs).json()
+   if 'error' in r_json:
+      printError(r.json['error'])
+   else:
+      printInfo('iOS notifications sent successfully.')

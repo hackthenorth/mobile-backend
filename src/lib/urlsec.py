@@ -11,6 +11,10 @@ from ..login import *
 
 def get_data():
    path = os.path.expanduser(os.path.join(CONFIG_PATH, 'urlsec.json'))
+
+   if not os.path.exists(os.path.expanduser(CONFIG_PATH)):
+       os.makedirs(os.path.expanduser(CONFIG_PATH))
+
    try:
       f = open(path, 'r')
    except IOError:
@@ -20,6 +24,10 @@ def get_data():
          return json.load(f)
 
 def put_data(data):
+
+   if not os.path.exists(os.path.expanduser(CONFIG_PATH)):
+       os.makedirs(os.path.expanduser(CONFIG_PATH))
+
    path = os.path.expanduser(os.path.join(CONFIG_PATH, 'urlsec.json'))
    with open(path, 'w') as f:
       json.dump(data, f)
