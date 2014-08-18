@@ -271,8 +271,10 @@ def pingGCM(data):
 
       # gcm_response['success'] and 'failure' report the number of successful and failed
       # notifications, respectively.
-      printInfo('%d notifications sent successfully.' % gcm_response['success'])
-      printInfo('%d notifications failed.' % gcm_response['failure'])
+      printInfo('%d of %d notifications sent successfully.' % 
+              (gcm_response['success'], len(registration_ids)))
+      printInfo('%d of %d notifications failed.' % 
+              (gcm_response['failure'], len(registration_ids)))
 
       # When we send off a GCM request, sometimes GCM will have something to say about
       # the registration IDs we tried to send a message to.
@@ -288,10 +290,14 @@ def pingGCM(data):
             # GCM will give us this result if we give it a) a malformed registration ID,
             # or b) an ID that corresponds to a user who has uninstalled our app. In both cases,
             # we should delete the registration ID from firebase.
-            if result['error'] in ['Unregistered', 'InvalidRegistration']:
+            if result['error'] in ['NotRegistered', 'InvalidRegistration']:
+
+               truncated_id = registration_id
+               if len(registration_id) > 30:
+                   truncated_id = truncated_id[:30] + '...'
+               printInfo('Registration ID \'%s\' is invalid; deleting from Firebase...' % truncated_id)
 
                # Delete the registration ID from firebase.
-               printInfo('Registration ID \'%s\' is invalid; deleting from Firebase...' % registration_id)
                r = requests.delete('%s/notifications/android/%s.json' % (FIREBASE_URL, registration_id),
                      params = { 'auth': FIREBASE_SECRET })
                
