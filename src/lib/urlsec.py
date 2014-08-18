@@ -9,27 +9,29 @@ import datetime
 import itertools
 from ..login import *
 
-def get_data():
-   path = os.path.expanduser(os.path.join(CONFIG_PATH, 'urlsec.json'))
+DATA_FILENAME = 'urlsec.json'
 
-   if not os.path.exists(os.path.expanduser(CONFIG_PATH)):
-       os.makedirs(os.path.expanduser(CONFIG_PATH))
+def get_data():
+   path = os.path.expanduser(CONFIG_PATH)
+
+   if not os.path.exists(path):
+      os.makedirs(path)
 
    try:
-      f = open(path, 'r')
-   except IOError:
-      return {}
+      f = open(os.path.join(path, DATA_FILENAME), 'r')
+   except IOError as e:
+      return {} 
    else:
       with f:
          return json.load(f)
 
 def put_data(data):
+   path = os.path.expanduser(CONFIG_PATH)
 
-   if not os.path.exists(os.path.expanduser(CONFIG_PATH)):
-       os.makedirs(os.path.expanduser(CONFIG_PATH))
+   if not os.path.exists(path):
+      os.makedirs(path)
 
-   path = os.path.expanduser(os.path.join(CONFIG_PATH, 'urlsec.json'))
-   with open(path, 'w') as f:
+   with open(os.path.join(path, DATA_FILENAME), 'w') as f:
       json.dump(data, f)
 
 # name: String, url: String
@@ -37,26 +39,28 @@ def put_data(data):
 def use(name, url):
    data = get_data()
 
-   # Remove potential duplicate
-   data = { k:data[k] for k in data if data[k]['url'] != url or data[k]['name'] != name }
+   if url != '':
+      key = 'N' + name + 'U' + url
 
-   # Add this entry to the dict
-   epoch_time = datetime.datetime.now().strftime('%s')
-   data[epoch_time] = { 'name': name, 'url': url }
-   put_data(data)
+      # Add this entry to the dict
+      epoch_time = datetime.datetime.now().strftime('%s')
+      entry = { 'name': name, 'url': url, 'time': epoch_time }
+      data[key] = entry
+
+      put_data(data)
 
 # n: Integer
 # Get the n most recently used URLs with names
 def get_recent(n):
-   data = get_data().items()
+   data = get_data().values()
 
    # Sort by the key of the tuples, which is the epoch time 
    # that it was last used
-   data = sorted(data, key=lambda tup: tup[0], reverse=True)
+   data = sorted(data, key=lambda x: x['time'], reverse=True)
 
    # Take the first n elements
    data = data[0:n]
 
    # Remove the keys (they're unnecessary) and return
-   return map(lambda tup: tup[1], data)
+   return data
 
