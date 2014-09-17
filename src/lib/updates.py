@@ -44,12 +44,12 @@ def checkEnvVars():
    printInfo('Checking that the Firebase secret is valid...')
    r = requests.get('%s/test.json' % FIREBASE_URL, params = { 'auth': FIREBASE_SECRET })
    if 'error' in r.json():
-       printError("Firebase error: '%s'" % r.json()['error'])
-       printError('Double check that $FIREBASE_SECRET matches the secret ' \
-             'for %s.' % FIREBASE_URL)
+       printWarn("Firebase error: '%s'" % r.json()['error'])
+       printWarn('Double check that $FIREBASE_SECRET matches the secret ' \
+             'for %s, and that a $ROOT/test.json is readable by that secret.' % FIREBASE_URL)
        print ''
-       return False
-   printInfo('Firebase secret OK.')
+   else:
+       printInfo('Firebase secret OK.')
 
    # This sends a dummy GCM request that won't actually do anything meaningful. However,
    # it will give an error if the API key is invalid for some reason.

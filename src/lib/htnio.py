@@ -11,6 +11,9 @@ def printError(msg):
 def printInfo(msg):
    print "[ %s ] %s" % (colored('INFO', 'green'), msg)
 
+def printWarn(msg):
+   print "[ %s ] %s" % (colored('WARN', 'yellow'), msg)
+
 def make_prompt(string):
    return "[ %s ] %s" % (colored(string, 'magenta'), INPUT_INDICATOR)
 
