@@ -201,14 +201,16 @@ def partition(lst, n):
 # Firebase, and sends a notification to all our users about the new update.
 def pingGCM(data):
 
+   uuids_path = 'gcm/uuid'
+
    # Normalize the data
    data = normalizeGCMData(data)
 
    # Get all the android registration ids from Firebase
    print ''
    printInfo('Sending notifications to Android users...')
-   printInfo('Getting registration ids from /notifications/android.json...')
-   r = requests.get('%s/notifications/android.json' % FIREBASE_URL,
+   printInfo('Getting registration ids from %s...' % uuids_path)
+   r = requests.get('%s/%s.json' % (FIREBASE_URL, uuids_path),
                     params = { 'auth': FIREBASE_SECRET })
 
    registration_ids = []
@@ -218,9 +220,10 @@ def pingGCM(data):
    response = r.json() # is a python dict
    if response:
       if 'error' in response:
-         printError('Error retreiving registration ids from /notifications/android.json')
+         printError('Error retreiving registration ids from %s' % uuids_path)
          printError('Make sure the Firebase instance at %s is properly set up with ' \
-               'registration ids at /notifications/android.' % FIREBASE_URL)
+               'registration ids at %s' % (FIREBASE_URL,
+                   uuids_path))
          printError('Also, make sure to call checkEnvVars to validate your environment ' \
                'variables.')
       else:
@@ -298,7 +301,7 @@ def pingGCM(data):
                printInfo('Registration ID \'%s\' is invalid; deleting from Firebase...' % truncated_id)
 
                # Delete the registration ID from firebase.
-               r = requests.delete('%s/notifications/android/%s.json' % (FIREBASE_URL, registration_id),
+               r = requests.delete('%s/%s/%s.json' % (FIREBASE_URL, uuids_path, registration_id),
                      params = { 'auth': FIREBASE_SECRET })
                
          # Sometimes GCM will be like 'yo! you gave me this registration ID, but I have a new one for this
@@ -309,9 +312,11 @@ def pingGCM(data):
 
             # Update the registration ID from firebase
             printInfo('Updating registration ID %s to %s...' % (registration_id, new_regid))
-            r = requests.delete('%s/notifications/android/%s.json' % registration_id,
+            r = requests.delete('%s/%s/%s.json' %
+                    (FIREBASE_URL, uuids_path, registration_id),
                   params = { 'auth': FIREBASE_SECRET })
-            r = requests.put('%s/notifications/android/%s.json' % new_regid,
+            r = requests.put('%s/%s/%s.json' % 
+                    (FIREBASE_URL, uuids_path, new_regid),
                   params = { 'auth': FIREBASE_SECRET })
 
       printInfo('GCM bookkeeping finished.')
