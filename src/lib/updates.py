@@ -113,9 +113,7 @@ def get_image_url(name):
       else:
 	 return user_input
 
-# Returns a dict of the new data on success, or None if failed.
-def pushToFirebase():
-
+def getDataFromUser():
    # Read the data for the update.
    print ''
    name = forever_raw_input(make_prompt('name'))
@@ -145,6 +143,9 @@ def pushToFirebase():
    # has said "yes this data is good"
 
    urlsec.use(new_data['name'], new_data['avatar'])
+
+# Returns a dict of the new data on success, or None if failed.
+def pushToFirebase(data):
 
    # Add the update to firebase.
    r = requests.post('%s/updates.json' % FIREBASE_URL,

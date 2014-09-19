@@ -5,7 +5,7 @@ import requests
 
 from src.login import *
 
-with open('test-data/team.json', 'r') as f:
+with open('data/team_data.json', 'r') as f:
     teammembers = json.load(f)
 
     for teammember in teammembers:
