@@ -1,4 +1,4 @@
-mbile-backend
+Mobile-backend
 ==============
 
 Backend for HTN iOS and Android app.
@@ -10,6 +10,8 @@ There are two ways of interacting with the datastore: issuing an update, and
 modifying the static datastore.
 
 ### Issuing Updates
+
+#### Manual
 
 This is the mechanism for issuing live updates to all users of the application.
 There is a script set up to do all the required steps; all that you have to do
@@ -31,6 +33,24 @@ This will guide you through entering the name (i.e. title), text (i.e. body
 text), and an optional image url which will be circle-cropped and displayed as
 an avatar.
 
+#### Scheduled
+
+Create a json file with the following spec:
+
+```json
+[
+  {
+    "time": "2014-09-19T18:00:00-04:00",
+    "title": "Hacker Life Workshop",
+    "body": "Come out to DC 1302 for a talk about how to be a hacker fulltime!",
+    "image": "http://foo.bar.com/image.png" // can be null
+  } ...
+]
+```
+Then, you can run `/schedule-updates.py [your-json-file] &` to start a
+python process that will issue the updates at the scheduled time. Make sure to
+run this on the EC2 instance, so that they don't get cancelled.
+
 ### Updating Firebase
 
 The data from the app is loaded from Firebase, at
@@ -39,7 +59,7 @@ the tabs in each app:
 
 `/updates`, `/schedule`, `/prizes`, `/mentors`, `/team`, and `/sponsors`.
 
-Note: do not interact with the /updates information manually; use the
+Note: do not interact with the `/updates` information manually; use the
 `issue-update.py` script as explained above.
 
 If you have access to the Firebase Forge for `hackthenorth`, then you can
