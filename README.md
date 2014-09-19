@@ -40,7 +40,7 @@ Create a json file with the following spec:
 ```json
 [
   {
-    "time": "2014-09-19T18:00:00-04:00",
+    "time": "2014-09-19T22:00:00", // 10pm on friday
     "title": "Hacker Life Workshop",
     "body": "Come out to DC 1302 for a talk about how to be a hacker fulltime!",
     "image": "http://foo.bar.com/image.png" // can be null
