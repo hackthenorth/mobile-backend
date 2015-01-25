@@ -1,6 +1,6 @@
-
 # Use this file to hold secrets, keys, and other configuration details
 src/login.py
+data/
 
 *.swp
 **/*.pyc
